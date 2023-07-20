@@ -1,6 +1,6 @@
 from .FileManage import FileManage
 from ..log.Logging import _log
-from ..gtime import get_time
+from ..Gtime import get_time
 
 # 配置相关
 config = FileManage("./config/config.json", True)
