@@ -1,0 +1,16 @@
+# config
+config.json
+
+# log
+*.log
+*.log.*
+log/
+
+# db
+violator.db
+
+# python
+venv/
+__pycache__/
+.idea
+.vscode
