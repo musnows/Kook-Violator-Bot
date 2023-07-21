@@ -22,6 +22,11 @@ def replace_markdown(nick: str):
     return nick
 
 
+def is_bot_admin(user_id: str):
+    """是否是机器人的管理员"""
+    return user_id in config['admin_user']
+
+
 def is_guild_admin(user_id: str, admin_user: list):
     """判断是否是服务器管理员"""
     return user_id in admin_user
@@ -59,8 +64,9 @@ async def help_cmd(msg: Message, *arg):
     except Exception as result:
         await BotLog.base_exception_handler("help", traceback.format_exc(), msg)
 
-@bot.command(name='set-guild',aliases=['配置违例者'])
-async def set_guild_conf_cmd(msg:Message,ch_text:str,role_text="e",*arg):
+
+@bot.command(name='set-guild', aliases=['配置违例者'])
+async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
     """配置违例者服务"""
     try:
         await BotLog.log_msg(msg)
@@ -76,22 +82,22 @@ async def set_guild_conf_cmd(msg:Message,ch_text:str,role_text="e",*arg):
             return await msg.reply(await KookApi.get_card_msg("您并非当前服务器的违例者管理员", "无权执行本命令"))
         # 将当前用户设置为第一个管理员，如果已经有了，那就使用原来的（当前用户肯定在里面）
         admin_user_list = [msg.author_id] if not guild_conf else guild_conf['admin_user']
-        ch_id = ch_text.replace('(chn)','')
+        ch_id = ch_text.replace('(chn)', '')
         rid = role_text
         # 设置
-        bool_ret = await SqliteData.set_guild_conf(msg.ctx.guild.id,admin_user_list,ch_id,role_text)
+        bool_ret = await SqliteData.set_guild_conf(msg.ctx.guild.id, admin_user_list, ch_id, role_text)
         # 配置卡片
         header_text = "【违例者管理】初始化" if bool_ret else "【违例者管理】配置更新"
-        c = Card(Module.Header(header_text),Module.Divider())
+        c = Card(Module.Header(header_text), Module.Divider())
         insert_time = time.time() if not guild_conf else guild_conf['insert_time']
         text = f"管理员用户：{admin_user_list}\n"
-        text+= f"违例告示频道：(chn){ch_id}(chn)\n"
-        text+= f"违例告示频道ID：{ch_id}\n"
+        text += f"违例告示频道：(chn){ch_id}(chn)\n"
+        text += f"违例告示频道ID：{ch_id}\n"
         if role_text != "e":
             text += f"违例者角色：{role_text}\n"
-            rid = role_text.replace('(rol)','')
+            rid = role_text.replace('(rol)', '')
             text += f"违例者角色ID：{rid}\n"
-        text+= f"初始化时间：{Gtime.get_time_from_stamp(insert_time)}\n"
+        text += f"初始化时间：{Gtime.get_time_from_stamp(insert_time)}\n"
         c.append(Module.Section(Element.Text(text, Types.Text.KMD)))
         sub_text = "使用「/添加违例者管理员 @用户」可添加管理员"
         c.append(Module.Context(Element.Text(sub_text, Types.Text.KMD)))
@@ -103,7 +109,7 @@ async def set_guild_conf_cmd(msg:Message,ch_text:str,role_text="e",*arg):
         await BotLog.base_exception_handler("set-guild", traceback.format_exc(), msg)
 
 
-@bot.command(name='add-vol', aliases=['新增违例者','添加违例者'])
+@bot.command(name='add-vol', aliases=['新增违例者', '添加违例者'])
 async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
     """新增违例用户的命令"""
     try:
@@ -130,21 +136,48 @@ async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
 
         # 发送违例者信息到指定频道
         ch = await bot.client.fetch_public_channel(guild_conf['channel_id'])
-        vol_card_module = get_vol_info_card(msg.author_id,vol_user_id,vol_user_name,vol_info,guild_conf['role_id'])
-        vol_card = Card(Module.Header("告示 | 新增违例者"),Module.Divider())
+        vol_card_module = get_vol_info_card(msg.author_id, vol_user_id, vol_user_name, vol_info, guild_conf['role_id'])
+        vol_card = Card(Module.Header("告示 | 新增违例者"), Module.Divider())
         for mod in vol_card_module:
             vol_card.append(mod)
         # 发送
         await ch.send(CardMessage(vol_card))
-        
+
         # 写入数据成功，发送信息给用户
-        cm = await KookApi.get_card_msg(
-            f"操作违例者「{vol_user_name}」成功\n违例信息已经发送至 (chn){guild_conf['channel_id']}(chn)\n", sub_text)
+        cm = await KookApi.get_card_msg(f"操作违例者「{vol_user_name}」成功\n违例信息已经发送至 (chn){guild_conf['channel_id']}(chn)\n",
+                                        sub_text)
         cm.append(vol_card)
         await msg.reply(cm)
         _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | add vol_user:{vol_user_id} rid:{guild_conf['role_id']}")
     except Exception as result:
         await BotLog.base_exception_handler("add-vol", traceback.format_exc(), msg)
+
+
+#########################################################################################
+
+
+@bot.command(name='kill', aliases=['下线'])
+async def kill_bot_cmd(msg: Message, at_text="", *arg):
+    """机器人下线"""
+    try:
+        await BotLog.log_msg(msg)  # 这个命令必须要at机器人
+        if not is_bot_admin(msg.author_id):
+            return  # 直接退出，非管理
+        if f'(met){bot.me.id}(met)' not in at_text:
+            return  # 需要at机器人才能kill，不做提示
+
+        # 申请锁，保证没有数据库操作，能成功退出
+        async with SqliteData.DBSqlLock:
+            await msg.reply(await KookApi.get_card_msg("[KILL] 保存全局变量成功，bot下线"))
+            ret = "webhook"
+            if config['bot']['ws']:
+                ret = await KookApi.bot_offline()
+            # 打印日志后下线
+            _log.fatal(f"KILL | bot-off | {ret}\n")
+            os._exit(0)  # 退出程序
+
+    except Exception as result:
+        await BotLog.base_exception_handler("kill", traceback.format_exc(), msg)
 
 
 @bot.on_startup
