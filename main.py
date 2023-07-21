@@ -43,8 +43,8 @@ def get_vol_info_card(admin_user_id: str,
     text += f"处理人：(met){admin_user_id}(met)\n"
     text += f"处理时间：{Gtime.get_time_from_stamp(insert_time)}"
 
-    sub_text = f"处理人id：{admin_user_id}"
-    if role_id != "": sub_text += f"\n违例角色：{role_id}"
+    sub_text = f"处理人ID：{admin_user_id}"
+    if role_id != "": sub_text += f" 违例者角色：{role_id}"
 
     return (Module.Section(Element.Text(text, Types.Text.KMD)), Module.Context(Element.Text(sub_text, Types.Text.KMD)))
 
@@ -59,8 +59,51 @@ async def help_cmd(msg: Message, *arg):
     except Exception as result:
         await BotLog.base_exception_handler("help", traceback.format_exc(), msg)
 
+@bot.command(name='set-guild',aliases=['配置违例者'])
+async def set_guild_conf_cmd(msg:Message,ch_text:str,role_text="e",*arg):
+    """配置违例者服务"""
+    try:
+        await BotLog.log_msg(msg)
+        # 参数正确性判断
+        if '(chn)' not in ch_text:
+            return await msg.reply(await KookApi.get_card_msg("频道参数错误，必须用`#频道`来指定"))
+        if role_text != "e" and '(rol)' not in role_text:
+            return await msg.reply(await KookApi.get_card_msg("角色组参数错误，必须用`@角色`来指定"))
+        # 查询数据
+        guild_conf = await SqliteData.query_guild_conf(msg.ctx.guild.id)
+        # 已经配置过了，判断是否为服务器管理员
+        if guild_conf and not is_guild_admin(msg.author_id, guild_conf['admin_user']):
+            return await msg.reply(await KookApi.get_card_msg("您并非当前服务器的违例者管理员", "无权执行本命令"))
+        # 将当前用户设置为第一个管理员，如果已经有了，那就使用原来的（当前用户肯定在里面）
+        admin_user_list = [msg.author_id] if not guild_conf else guild_conf['admin_user']
+        ch_id = ch_text.replace('(chn)','')
+        rid = role_text
+        # 设置
+        bool_ret = await SqliteData.set_guild_conf(msg.ctx.guild.id,admin_user_list,ch_id,role_text)
+        # 配置卡片
+        header_text = "【违例者管理】初始化" if bool_ret else "【违例者管理】配置更新"
+        c = Card(Module.Header(header_text),Module.Divider())
+        insert_time = time.time() if not guild_conf else guild_conf['insert_time']
+        text = f"管理员用户：{admin_user_list}\n"
+        text+= f"违例告示频道：(chn){ch_id}(chn)\n"
+        text+= f"违例告示频道ID：{ch_id}\n"
+        if role_text != "e":
+            text += f"违例者角色：{role_text}\n"
+            rid = role_text.replace('(rol)','')
+            text += f"违例者角色ID：{rid}\n"
+        text+= f"初始化时间：{Gtime.get_time_from_stamp(insert_time)}\n"
+        c.append(Module.Section(Element.Text(text, Types.Text.KMD)))
+        sub_text = "使用「/添加违例者管理员 @用户」可添加管理员"
+        c.append(Module.Context(Element.Text(sub_text, Types.Text.KMD)))
+        # 回复用户
+        await msg.reply(CardMessage(c))
+        _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | ch:{ch_text} rid:{rid} | is_insert:{bool_ret}")
 
-@bot.command(name='add-vol', aliases=['新增违例者'])
+    except Exception as result:
+        await BotLog.base_exception_handler("set-guild", traceback.format_exc(), msg)
+
+
+@bot.command(name='add-vol', aliases=['新增违例者','添加违例者'])
 async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
     """新增违例用户的命令"""
     try:
@@ -88,7 +131,7 @@ async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
         # 发送违例者信息到指定频道
         ch = await bot.client.fetch_public_channel(guild_conf['channel_id'])
         vol_card_module = get_vol_info_card(msg.author_id,vol_user_id,vol_user_name,vol_info,guild_conf['role_id'])
-        vol_card = Card(Module.Header("违例者告示"),Module.Divider())
+        vol_card = Card(Module.Header("告示 | 新增违例者"),Module.Divider())
         for mod in vol_card_module:
             vol_card.append(mod)
         # 发送
@@ -96,8 +139,7 @@ async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
         
         # 写入数据成功，发送信息给用户
         cm = await KookApi.get_card_msg(
-            f"操作「{vol_user_name}」成功\n\
-                                                   违例信息已经发送至 (chn){guild_conf['channel_id']}(chn)\n", sub_text)
+            f"操作违例者「{vol_user_name}」成功\n违例信息已经发送至 (chn){guild_conf['channel_id']}(chn)\n", sub_text)
         cm.append(vol_card)
         await msg.reply(cm)
         _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | add vol_user:{vol_user_id} rid:{guild_conf['role_id']}")

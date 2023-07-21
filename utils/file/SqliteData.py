@@ -61,7 +61,7 @@ class SqliteSql:
 
     class Update:
         UPDATE_VIOLATOR_LOG = "UPDATE violator_log SET admin_user = ?, vol_info = ?, role_id = ?, update_time = ? \
-                                                    WHERE guild_id = ? user_id = ?;"
+                                                    WHERE guild_id = ? and user_id = ?;"
         """更新VIOLATOR_LOG表，最后两个参数是服务器id和违例用户id"""
         UPDATE_GUILD_CONF = "UPDATE guild_conf SET admin_user = ?, channel_id = ?, role_id = ? \
                                                 WHERE guild_id = ?;"
@@ -70,9 +70,9 @@ class SqliteSql:
     class Select:
         SELECT_GUILD_CONF = "select * from guild_conf where guild_id = ?;"
         """搜索guild_conf表"""
-        SELECT_VIOLATOR_LOG_UID = "select * from violator_log where guild_id = ? user_id = ?;"
+        SELECT_VIOLATOR_LOG_UID = "select * from violator_log where guild_id = ? and user_id = ?;"
         """通过id查询违例用户，第二个参数是用户id"""
-        SELECT_VIOLATOR_LOG_UNAME = "select * from c_log where guild_id = ? user_name LIKE ?;"
+        SELECT_VIOLATOR_LOG_UNAME = "select * from c_log where guild_id = ? and user_name LIKE ?;"
         """通过用户ID模糊查询，第二个参数是用户名"""
 
 
@@ -125,7 +125,7 @@ async def set_violator_log(guild_id: str,
             if not select_ret_all:  # 没有找到
                 query.execute(SqliteSql.Insert.INSERT_VIOLATOR_LOG,
                               (guild_id, json.dumps([admin_user_id]), user_id,
-                               user_name, vol_info, role_id, update_time))
+                               user_name, vol_info, role_id))
             else:  # 找到了
                 is_insert = False  # 是更新
                 # 获取旧值
@@ -170,6 +170,7 @@ async def set_guild_conf(guild_id: str,
                                        (guild_id, ))
             select_ret_all = select_ret.fetchall()
             if not select_ret_all:  # 没有找到
+                role_id = '' if role_id == 'e' else role_id.replace('(rol)','')
                 query.execute(
                     SqliteSql.Insert.INSERT_GUILD_CONF,
                     (guild_id, json.dumps(admin_user), channel_id, role_id))
@@ -177,7 +178,7 @@ async def set_guild_conf(guild_id: str,
                 is_insert = False
                 admin_user_list = json.loads(
                     select_ret_all[0][1])  # 原本的管理员用户列表
-                # role_id 如果没有传入，则采用原始值
+                # role_id 如果没有传入，则采用数据库中原始值
                 role_id = select_ret_all[0][3] if role_id == "e" else role_id
                 # 插入新的管理员用户
                 for u in admin_user:
@@ -248,7 +249,7 @@ async def query_guild_conf(guild_id: str):
             return {
                 "guild_id": select_ret_all[0][0],
                 "admin_user": json.loads(select_ret_all[0][1]),
-                "chanenl_id": select_ret_all[0][2],
+                "channel_id": select_ret_all[0][2],
                 "role_id": select_ret_all[0][3],
                 "insert_time": select_ret_all[0][4]
             }
