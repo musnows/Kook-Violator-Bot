@@ -72,7 +72,7 @@ class SqliteSql:
         """搜索guild_conf表"""
         SELECT_VIOLATOR_LOG_UID = "select * from violator_log where guild_id = ? and user_id = ?;"
         """通过id查询违例用户，第二个参数是用户id"""
-        SELECT_VIOLATOR_LOG_UNAME = "select * from c_log where guild_id = ? and user_name LIKE ?;"
+        SELECT_VIOLATOR_LOG_UNAME = "select * from violator_log where guild_id = ? and user_name LIKE ?;"
         """通过用户ID模糊查询，第二个参数是用户名"""
 
 
@@ -212,7 +212,7 @@ async def query_violator_log(guild_id: str, user_id=None, user_name=None):
             elif user_name:
                 select_ret = query.execute(
                     SqliteSql.Select.SELECT_VIOLATOR_LOG_UNAME,
-                    (guild_id, user_name))
+                    (guild_id, f"%{user_name}%"))
             # 获取结果
             select_ret_all = select_ret.fetchall()
             if not select_ret_all: return []
