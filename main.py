@@ -116,6 +116,34 @@ async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
         await BotLog.base_exception_handler("set-guild", traceback.format_exc(), msg)
 
 
+@bot.command(name='add-guild-admin', aliases=['添加违例者管理员'])
+async def add_guild_admin_cmd(msg: Message, at_user: str, *arg):
+    """添加违例者管理员"""
+    try:
+        await BotLog.log_msg(msg)
+        if '(met)' not in at_user:
+            return await msg.reply(await KookApi.get_card_msg("用户参数错误，必须用`@用户`来指定新管理员"))
+        # 查询服务器配置
+        guild_conf = await SqliteData.query_guild_conf(msg.ctx.guild.id)
+        if not guild_conf:
+            return await msg.reply(await KookApi.get_card_msg("当前服务器尚未配置，请使用「/voh」参考帮助命令配置违例者"))
+        # 插入管理员
+        target_user_id = at_user.replace('(met)','')
+        text = f'管理员「{at_user}」已存在\n用户ID：{target_user_id}\n'
+        admin_user_list = guild_conf['admin_user']
+        if target_user_id not in admin_user_list:
+            admin_user_list.append(target_user_id)
+            text = f'新管理员「{at_user}」添加成功\n用户ID：{target_user_id}\n'
+        text+= f"当前服务器管理员列表：\n```\n{admin_user_list}\n```"
+        # 设置数据库后回复用户
+        await SqliteData.set_guild_conf(msg.ctx.guild.id,admin_user_list,guild_conf['channel_id'],guild_conf['role_id'])
+
+        await msg.reply(await KookApi.get_card_msg(text))
+        _log.info(f"G:{msg.ctx.guild.id} AAu:{msg.author_id} | add admin:{target_user_id}")
+    except Exception as result:
+        await BotLog.base_exception_handler("set-guild", traceback.format_exc(), msg)
+
+
 @bot.command(name='add-vol', aliases=['新增违例者', '添加违例者'])
 async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
     """新增违例用户的命令"""

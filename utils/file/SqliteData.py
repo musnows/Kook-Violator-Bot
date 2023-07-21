@@ -186,7 +186,7 @@ async def set_guild_conf(guild_id: str,
                         admin_user_list.append(u)
                 # 更新
                 query.execute(SqliteSql.Update.UPDATE_GUILD_CONF,
-                              (admin_user_list, channel_id, role_id, guild_id))
+                              (json.dumps(admin_user_list), channel_id, role_id, guild_id))
 
             db.commit()
 
