@@ -3,17 +3,12 @@ from khl import Message, PrivateMessage, Bot
 from khl.card import Card, CardMessage, Element, Module, Types
 # 用户数量的记录文件
 from .Logging import _log
-from ..file.Files import bot,allowChannel
-from ..Gtime import getTime
+from ..file.Files import bot
+from ..Gtime import get_time
 from ..KookApi import upd_card, get_card_msg
 
-def is_channel_allowed(chid:str) ->bool:
-    """判断频道是否被放行，true为是"""
-    if allowChannel["list"] == []: # 为空放行全部
-        return True
-    return chid in allowChannel["list"] # 否则判断
 
-async def logMsg(msg: Message,pm_allow=False,ch_allow=False) -> bool:
+async def log_msg(msg: Message) -> bool:
     """在控制台打印msg内容，用作日志
     - 检查当前频道能否执行命令
     - pm_allow: False代表私聊不允许执行并会发送信息
@@ -23,40 +18,25 @@ async def logMsg(msg: Message,pm_allow=False,ch_allow=False) -> bool:
     - True: 准许执行
     - False：不给执行
     """
-    ret = True
     try:
         # 私聊用户没有频道和服务器id
         if isinstance(msg, PrivateMessage):
-            _log.info(f"PrivateMsg | Au:{msg.author_id} {msg.author.username}#{msg.author.identify_num} | {msg.content}")
-            if not pm_allow:
-                await msg.reply(f"本命令禁止私聊使用")
-                _log.info(f"Au:{msg.author_id} | PrivateMsg, abort")
-            return pm_allow
+            _log.info(
+                f"PrivateMsg | Au:{msg.author_id} {msg.author.username}#{msg.author.identify_num} | {msg.content}")
         else:
             _log.info(
                 f"G:{msg.ctx.guild.id} | C:{msg.ctx.channel.id} | Au:{msg.author_id} {msg.author.username}#{msg.author.identify_num} = {msg.content}"
             )
-            # ch_allow为真无须去判断config
-            if not ch_allow:
-                ret = is_channel_allowed(msg.ctx.channel.id)
-            # config不允许且ch_allow也为false
-            if not ch_allow and not ret:
-                _log.info(f"Au:{msg.author_id} | C:{msg.ctx.channel.id} | ch not allowed, abort")
-                if allowChannel["notice"]:# 开启了notice，则发送信息给用户
-                    await msg.reply(allowChannel["notice_text"])
-            # 返回ret
-            return ret
     except:
         _log.exception("Exception occurred")
-        return ret # 出错认为是可以的（规避不理人的情况）
 
 
-async def APIRequestFailed_Handler(def_name: str,
-                                   excp: str,
-                                   msg: Message,
-                                   bot: Bot,
-                                   cm = CardMessage(),
-                                   send_msg: dict[str, str] = {}) -> None:
+async def api_request_failed_handler(def_name: str,
+                                     excp: str,
+                                     msg: Message,
+                                     bot: Bot,
+                                     cm=CardMessage(),
+                                     send_msg: dict[str, str] = {}) -> None:
     """出现kook api异常的通用处理
 
     Args:
@@ -68,11 +48,11 @@ async def APIRequestFailed_Handler(def_name: str,
     - send_msg: return value of msg.reply or bot.send
     """
     _log.exception(f"APIRequestFailed in {def_name} | Au:{msg.author_id}")
-    err_str = f"ERR! [{getTime()}] {def_name} Au:{msg.author_id} APIRequestFailed\n{excp}"
+    err_str = f"ERR! [{get_time()}] {def_name} Au:{msg.author_id} APIRequestFailed\n{excp}"
     text = f"啊哦，出现了一些问题\n" + err_str
     text_sub = 'e'
     # 引用不存在的时候，直接向频道或者用户私聊重新发送消息
-    if "引用不存在" in excp:  
+    if "引用不存在" in excp:
         if isinstance(msg, PrivateMessage):
             cur_user = await bot.client.fetch_user(msg.author_id)
             await cur_user.send(cm)
@@ -96,11 +76,11 @@ async def APIRequestFailed_Handler(def_name: str,
 
 
 # 基础错误的处理，带login提示(部分命令不需要这个提示)
-async def BaseException_Handler(def_name: str,
-                                excp: str,
-                                msg: Message,
-                                send_msg: dict[str, str] = {},
-                                debug_send=None) -> None:  # type: ignore
+async def base_exception_handler(def_name: str,
+                                 excp: str,
+                                 msg: Message,
+                                 send_msg: dict[str, str] = {},
+                                 debug_send=None) -> None:  # type: ignore
     """Args:
     - def_name: name of def to print in log
     - excp: taraceback.fromat_exc()
@@ -109,7 +89,7 @@ async def BaseException_Handler(def_name: str,
     - debug_send: Channel obj for sending err_str, send if not None
     - help: str for help_info, replyed in msg.reply
     """
-    err_str = f"ERR! [{getTime()}] {def_name} Au:{msg.author_id}\n```\n{excp}\n```"
+    err_str = f"ERR! [{get_time()}] {def_name} Au:{msg.author_id}\n```\n{excp}\n```"
     _log.exception(f"Exception in {def_name} | Au:{msg.author_id}")
     cm0 = CardMessage()
     c = Card(color='#fb4b57')
@@ -128,7 +108,8 @@ async def BaseException_Handler(def_name: str,
 
 import psutil, os
 
-async def get_proc_info(start_time=getTime()) -> CardMessage:
+
+async def get_proc_info(start_time=get_time()) -> CardMessage:
     """获取机器人进程信息
     start_time: bot start time str
     """
@@ -139,7 +120,7 @@ async def get_proc_info(start_time=getTime()) -> CardMessage:
     text += f"开辟的虚拟内存：{format((p.memory_info().vms / 1024 / 1024), '.4f')} MB\n"
     text += f"IO信息：\n{p.io_counters()}"
     cm = CardMessage()
-    c = Card(Module.Header(f"来看看当前的负载吧！"), Module.Context(f"开机于 {start_time} | 记录于 {getTime()}"), Module.Divider(),
+    c = Card(Module.Header(f"来看看当前的负载吧！"), Module.Context(f"开机于 {start_time} | 记录于 {get_time()}"), Module.Divider(),
              Module.Section(Element.Text(text, Types.Text.KMD)))
     cm.append(c)
     return cm
