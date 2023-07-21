@@ -59,8 +59,15 @@ async def help_cmd(msg: Message, *arg):
     """帮助命令"""
     try:
         await BotLog.log_msg(msg)
-        text = ""
-        await msg.reply(await KookApi.get_card_msg(text, sub_text=f"开机于：{StartTime}"))
+        text = "「/配置违例者 #频道」初始化违例者管理，将在目标频道发送违例者公告\n"
+        text+= "「/配置违例者 #频道 @角色」同上，添加违例者时会添加上这个角色\n"
+        text+= "「/添加违例者 @违例者用户 违例原因」新增违例者\n"
+        text+= "「/添加违例者管理员 @用户」添加其他违例者管理员"
+        # 构造卡片并发送
+        c = Card(Module.Header("违例者管理机器人的帮助命令"),Module.Context(f"开机于：{StartTime}"), Module.Divider())
+        c.append(Module.Section(Element.Text(text, Types.Text.KMD)))
+        c.append(Module.Container(Element.Image(src="https://img.kookapp.cn/assets/2023-07/jJ4cBQIOnl0i30c0.png")))
+        await msg.reply(CardMessage(c))
     except Exception as result:
         await BotLog.base_exception_handler("help", traceback.format_exc(), msg)
 
