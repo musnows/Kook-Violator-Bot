@@ -263,6 +263,27 @@ async def kill_bot_cmd(msg: Message, at_text="", *arg):
     except Exception as result:
         await BotLog.base_exception_handler("kill", traceback.format_exc(), msg)
 
+# 配置项中存在才启动这个task
+if 'uptime_url' in config and 'http' in config['uptime_url']:
+    import requests
+    uptime_count = 0 # 计数器
+    # 直接请求一次
+    _log.info(f"[BOT.TASK] add uptime task | {requests.get(url=config['uptime_url']).status_code}")
+    # 添加任务
+    @bot.task.add_interval(seconds=80)
+    async def ping_alive_task():
+        """uptime监控"""
+        try:
+            global uptime_count
+            ret = requests.get(url=config['uptime_url'])
+            # 每5次打印一次输出
+            uptime_count +=1
+            if uptime_count>=5:
+                uptime_count = 0
+                _log.info(f"uptime {config['uptime_url']} | status:{ret.status_code}")
+            
+        except Exception as result:
+            _log.exception("err in ping task")
 
 @bot.on_startup
 async def startup_task(b):
