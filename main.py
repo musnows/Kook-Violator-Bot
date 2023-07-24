@@ -1,6 +1,6 @@
-import io, os
+import os
 import traceback
-import json
+import aiohttp
 import time
 
 from khl import Bot, Event, EventTypes, Message, PublicChannel
@@ -263,31 +263,37 @@ async def kill_bot_cmd(msg: Message, at_text="", *arg):
     except Exception as result:
         await BotLog.base_exception_handler("kill", traceback.format_exc(), msg)
 
-
-# 配置项中存在才启动这个task
-if 'uptime_url' in config and 'http' in config['uptime_url']:
-    import requests
-    uptime_count, uptime_ping_time = 0, 100  # 计数器
-    # 直接请求一次
-    _log.info(f"[BOT.TASK] add uptime task | {requests.get(url=config['uptime_url'] + '100').status_code}")
-    # 添加任务
-    @bot.task.add_interval(seconds=80)
-    async def ping_alive_task():
-        """uptime监控"""
-        try:
-            global uptime_count, uptime_ping_time
-            start_time = time.time()
+# bot market 通信和uptime监控
+uptime_count, uptime_ping_time = 0, 100  # 计数器
+async def botmarket_ping_func():
+    """请求bot market在线接口"""
+    api = "http://bot.gekj.net/api/v1/online.bot"
+    headers = {'uuid': 'ca77f5a9-07dd-4e66-a618-a28767da9940'}
+    async with aiohttp.ClientSession() as session:
+        await session.post(api, headers=headers)
+# 定时task
+@bot.task.add_interval(seconds=80)
+async def botmarket_ping_task():
+    try:
+        global uptime_count, uptime_ping_time
+        status_code = 0
+        # 配置项中存在才启动这个task
+        if 'uptime_url' in config and 'http' in config['uptime_url']:        
+            start_time = time.time() # 开始请求的实际
             uptime_url = f"{config['uptime_url']}{uptime_ping_time}"
-            uptime_ret = requests.get(url=uptime_url)  # 请求
-            uptime_ping_time = int((time.time() - start_time) * 1000)  # 计算时间插值，再乘1000作为毫秒数
-            # 每5次打印一次日志输出
-            uptime_count += 1
-            if uptime_count >= 5:
-                uptime_count = 0
-                _log.info(f"uptime {uptime_url} | status:{uptime_ret.status_code}")
-
-        except Exception as result:
-            _log.exception("err in ping task")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(uptime_url) as uptime_ret:
+                    status_code = uptime_ret.status # 请求状态码
+            # 计算时间插值，再乘1000作为毫秒数
+            uptime_ping_time = int((time.time() - start_time) * 1000) 
+        # 每5次打印一次日志输出，和请求一次bm
+        uptime_count += 1
+        if uptime_count >= 5:
+            uptime_count = 0 # 重置为0
+            await botmarket_ping_func()
+            _log.info(f"uptime {uptime_url} | status:{status_code}")
+    except Exception as result:
+        _log.exception("err in ping task")
 
 
 @bot.on_startup
