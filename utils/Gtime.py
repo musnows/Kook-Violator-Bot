@@ -20,6 +20,7 @@ def get_date(format_str="%y-%m-%d"):
 
 def get_time_from_stamp(timestamp,format_str="%y-%m-%d %H:%M:%S"):
     """通过时间戳获取当前的本地时间，格式 23-01-01 00:00:00"""
+    if isinstance(timestamp,str):return timestamp  # 是str直接返回
     # localtime = time.localtime(timestamp)
     # localtime_str = time.strftime("%y-%m-%d %H:%M:%S", localtime)
     a = datetime.fromtimestamp(timestamp, tz=ZoneInfo('Asia/Shanghai'))
@@ -34,9 +35,11 @@ def get_timestamp_from_str(time_str:str):
     return dt.timestamp()
 
 
-def get_date_from_stamp(time_stamp):
+def get_date_from_stamp(timestamp):
     """从时间戳转为可读日期，格式%y-%m-%d"""
-    dt = datetime.fromtimestamp(time_stamp)
+    if isinstance(timestamp,str):return timestamp  # 是str直接返回
+    # 格式化
+    dt = datetime.fromtimestamp(timestamp)
     tz = timezone(timedelta(hours=8))
     dt = dt.astimezone(tz)
     return dt.strftime("%y-%m-%d")  # 转换成可读时间

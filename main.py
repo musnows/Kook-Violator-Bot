@@ -103,7 +103,7 @@ async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
         # 配置卡片
         header_text = "【违例者管理】初始化" if bool_ret else "【违例者管理】配置更新"
         c = Card(Module.Header(header_text), Module.Divider())
-        insert_time = time.time() if not guild_conf else guild_conf['insert_time']
+        insert_time = Gtime.get_time() if not guild_conf else guild_conf['insert_time']
         text = f"管理员用户：{admin_user_list}\n"
         text += f"违例告示频道：(chn){ch_id}(chn)\n"
         text += f"违例告示频道ID：{ch_id}\n"
@@ -111,7 +111,7 @@ async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
             text += f"违例者角色：{role_text}\n"
             rid = role_text.replace('(rol)', '')
             text += f"违例者角色ID：{rid}\n"
-        text += f"初始化时间：{Gtime.get_time_from_stamp(insert_time)}\n"
+        text += f"初始化时间：{insert_time}\n"
         c.append(Module.Section(Element.Text(text, Types.Text.KMD)))
         sub_text = "使用「/添加违例者管理员 @用户」可添加管理员"
         c.append(Module.Context(Element.Text(sub_text, Types.Text.KMD)))
