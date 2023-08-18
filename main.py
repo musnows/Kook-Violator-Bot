@@ -97,7 +97,7 @@ async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
         # 将当前用户设置为第一个管理员，如果已经有了，那就使用原来的（当前用户肯定在里面）
         admin_user_list = [msg.author_id] if not guild_conf else guild_conf['admin_user']
         ch_id = ch_text.replace('(chn)', '')
-        rid = role_text
+        rid = role_text.replace("(rid)","")
         # 设置
         bool_ret = await SqliteData.set_guild_conf(msg.ctx.guild.id, admin_user_list, ch_id, role_text)
         # 配置卡片
@@ -293,7 +293,10 @@ async def botmarket_ping_task():
             await botmarket_ping_func()
             _log.info(f"uptime {uptime_url} | status:{status_code}")
     except Exception as result:
-        _log.exception("err in ping task")
+        if 'Cannot connect' in str(result):
+            _log.warning(f"err in ping task | {str(result)}")
+        else:
+            _log.exception("err in ping task")
 
 
 @bot.on_startup

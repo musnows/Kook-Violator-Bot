@@ -170,7 +170,8 @@ async def set_guild_conf(guild_id: str,
                                        (guild_id, ))
             select_ret_all = select_ret.fetchall()
             if not select_ret_all:  # 没有找到
-                role_id = '' if role_id == 'e' else role_id.replace('(rol)','')
+                role_id = '' if role_id == 'e' else role_id
+                role_id = role_id.replace('(rol)','')
                 query.execute(
                     SqliteSql.Insert.INSERT_GUILD_CONF,
                     (guild_id, json.dumps(admin_user), channel_id, role_id))
@@ -180,6 +181,7 @@ async def set_guild_conf(guild_id: str,
                     select_ret_all[0][1])  # 原本的管理员用户列表
                 # role_id 如果没有传入，则采用数据库中原始值
                 role_id = select_ret_all[0][3] if role_id == "e" else role_id
+                role_id = role_id.replace('(rol)','')  # 因为有点问题，干脆重新替换一下
                 # 插入新的管理员用户
                 for u in admin_user:
                     if u not in admin_user_list:
@@ -250,6 +252,6 @@ async def query_guild_conf(guild_id: str):
                 "guild_id": select_ret_all[0][0],
                 "admin_user": json.loads(select_ret_all[0][1]),
                 "channel_id": select_ret_all[0][2],
-                "role_id": select_ret_all[0][3],
+                "role_id": select_ret_all[0][3].replace('(rol)',''),
                 "insert_time": select_ret_all[0][4]
             }
