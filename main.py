@@ -291,7 +291,7 @@ async def botmarket_ping_task():
         if uptime_count >= 5:
             uptime_count = 0 # 重置为0
             await botmarket_ping_func()
-            _log.info(f"uptime {uptime_url} | status:{status_code}")
+            _log.debug(f"uptime {uptime_url} | status:{status_code}")
     except Exception as result:
         if 'Cannot connect' in str(result):
             _log.warning(f"err in ping task | {str(result)}")
