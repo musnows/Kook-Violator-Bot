@@ -36,7 +36,8 @@ def get_vol_info_card(admin_user_list: list[str],
                       user_id: str,
                       user_name: str,
                       vol_info: str,
-                      role_id="",
+                      vol_remove_info = "e",
+                      role_id="e",
                       insert_time=time.time()):
     """获取违例者用户的告示信息
     - 返回两个module的元组
@@ -45,6 +46,10 @@ def get_vol_info_card(admin_user_list: list[str],
     text += f"违例者ID：{user_id}\n"
     text += f"违例者名：{user_name}\n"
     text += f"违例原因：{vol_info}\n"
+    # 是删除违例者
+    if vol_remove_info != "e":
+        text+= f"删除违例说明：{vol_remove_info}\n"
+    # 是谁处理的此项信息
     text += f"处理人："
     for admin_user_id in admin_user_list:
         text += f"(met){admin_user_id}(met) "
@@ -52,7 +57,8 @@ def get_vol_info_card(admin_user_list: list[str],
     text += f"处理时间：{Gtime.get_time_from_stamp(insert_time)}"
     # 底部text
     sub_text = f"处理人ID：{admin_user_list}"
-    if role_id != "": sub_text += f"  违例者角色：{role_id}"
+    if role_id != "e": 
+        sub_text += f"\n违例者角色：(rol){role_id}(rol)"
 
     return (Module.Section(Element.Text(text, Types.Text.KMD)), Module.Context(Element.Text(sub_text, Types.Text.KMD)))
 
@@ -66,6 +72,7 @@ async def help_cmd(msg: Message, *arg):
         text += "「/配置违例者 #频道 @角色」同上，添加违例者时会添加上这个角色\n"
         text += "「/添加违例者管理员 @用户」添加其他违例者管理员\n"
         text += "「/添加违例者 @违例者用户 违例原因」新增违例者\n"
+        text += "「/删除违例者 @违例者用户 删除违例说明」删除违例者\n"
         text += " **查询违例者的三种办法**\n"
         text += "「/查询违例者 违例者用户名」通过用户名模糊匹配搜索\n"
         text += "「/查询违例者 @用户」精准查询\n"
@@ -180,7 +187,7 @@ async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
         # 发送违例者信息到指定频道
         ch = await bot.client.fetch_public_channel(guild_conf['channel_id'])
         vol_card_module = get_vol_info_card([msg.author_id], vol_user_id, vol_user_name, vol_info,
-                                            guild_conf['role_id'])
+                                            role_id=guild_conf['role_id'])
         vol_card = Card(Module.Header("告示 | 新增违例者"), Module.Divider())
         for mod in vol_card_module:
             vol_card.append(mod)
@@ -226,16 +233,62 @@ async def search_vol_cmd(msg: Message, at_user: str, *arg):
         cm, c = CardMessage(), Card(Module.Header(f"目标「{at_user}」查询结果如下"))
         for vol_user in query_ret:
             vol_card_module = get_vol_info_card(vol_user['admin_user'], vol_user['user_id'], vol_user['user_name'],
-                                                vol_user['vol_info'], vol_user['role_id'], vol_user['update_time'])
+                                                vol_user['vol_info'], role_id=vol_user['role_id'], insert_time=vol_user['update_time'])
             for mod in vol_card_module:
                 c.append(mod)
         # 回复用户
         cm.append(c)
         await msg.reply(cm)
-        _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | search:{at_user} {target_user_id}")
+        _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | search:{at_user} | uid:{target_user_id}")
     except Exception as result:
         await BotLog.base_exception_handler("search-vol", traceback.format_exc(), msg)
 
+
+@bot.command(name='del-vol', aliases=['删除违例者'])
+async def add_vol_cmd(msg: Message, at_user: str, vol_remove_info: str, *arg):
+    """删除违例用户的命令"""
+    try:
+        await BotLog.log_msg(msg)
+        guild_conf = await SqliteData.query_guild_conf(msg.ctx.guild.id)
+        if not guild_conf:
+            return await msg.reply(await KookApi.get_card_msg("当前服务器尚未配置，请使用「/voh」参考帮助命令配置违例者管理"))
+        # 已经配置过了，判断是否为服务器管理员
+        if not is_guild_admin(msg.author_id, guild_conf['admin_user']):
+            return await msg.reply(await KookApi.get_card_msg("您并非当前服务器的违例者管理员", "无权执行本命令"))
+        # 违例者可以通过at或者用户id指定
+        vol_user_id = at_user if '(met)' not in at_user else at_user.replace('(met)', '')
+        # 尝试获取用户（保证用户在服务器内）
+        vol_user_obj = await msg.ctx.guild.fetch_user(vol_user_id)
+        vol_user_name = f"{vol_user_obj.username}#{vol_user_obj.identify_num}"
+        # 判断这个用户是否在数据库中，如果在将其删除
+        delete_ret = await SqliteData.delete_violator_log(msg.ctx.guild.id,vol_user_id)
+        if not delete_ret:
+            _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | rm vol_user:{vol_user_id} | not in log!")
+            return await msg.reply(await KookApi.get_card_msg(f"您要处理的用户「(met){vol_user_id}(met)」不存在违例记录",
+                                                            f"目标用户ID：{vol_user_id}"))
+        # 走到这里就是找到了
+        # 如果服务器配置role不为空，且用户的角色里面包含违例者角色，则给用户下角色
+        sub_text = "本服务器未设置违例者tag"
+        if guild_conf['role_id'] != "" and int(guild_conf['role_id']) in vol_user_obj.roles:
+            await msg.ctx.guild.revoke_role(vol_user_obj, guild_conf['role_id'])
+            sub_text = f"已给用户卸载「{guild_conf['role_id']}」违例者角色"
+        # 获取违例者信息的告示
+        ch = await bot.client.fetch_public_channel(guild_conf['channel_id'])
+        vol_card_module = get_vol_info_card([msg.author_id], vol_user_id, vol_user_name, delete_ret["vol_info"],
+                                            vol_remove_info=vol_remove_info,
+                                            role_id=guild_conf['role_id'])
+        vol_card = Card(Module.Header("告示 | 删除违例者"), Module.Divider())
+        for mod in vol_card_module:
+            vol_card.append(mod)
+        await ch.send(CardMessage(vol_card))
+        # 写入数据成功，发送信息给操作的用户
+        cm = await KookApi.get_card_msg(f"删除违例者「{vol_user_name}」成功\n删除违例说明已经发送至 (chn){guild_conf['channel_id']}(chn)\n",
+                                        sub_text)
+        cm.append(vol_card)
+        await msg.reply(cm)
+        _log.info(f"G:{msg.ctx.guild.id} Au:{msg.author_id} | rm vol_user:{vol_user_id} rid:{guild_conf['role_id']}")
+    except Exception as result:
+        await BotLog.base_exception_handler("del-vol", traceback.format_exc(), msg)
 
 #########################################################################################
 

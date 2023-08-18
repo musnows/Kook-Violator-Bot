@@ -75,6 +75,10 @@ class SqliteSql:
         SELECT_VIOLATOR_LOG_UNAME = "select * from violator_log where guild_id = ? and user_name LIKE ?;"
         """通过用户ID模糊查询，第二个参数是用户名"""
 
+    class Delete:
+        DELETE_VIOLATOR_LOG_UID = "delete from violator_log where guild_id = ? and user_id = ?;"
+        """通过服务器id/用户id删除违例者"""
+
 
 def create_tables(create_tables_sql_list: list[str]):
     """先创建数据库中的表"""
@@ -199,7 +203,9 @@ async def set_guild_conf(guild_id: str,
 
 
 async def query_violator_log(guild_id: str, user_id=None, user_name=None):
-    """通过用户id或者用户名来查询违例用户，用户名优先
+    """通过用户id或者用户名来查询违例用户
+    - 如果提供了user_name参数，则优先使用该参数（不用user_id）
+    - 如果需要user_id精准查询，请提供user_id参数并不提供user_name参数
     - 返回包含用户信息的list[dict]，没找到返回空list
     """
     global DBSqlLock
@@ -227,7 +233,7 @@ async def query_violator_log(guild_id: str, user_id=None, user_name=None):
                     "user_id": u[2],
                     "user_name": u[3],
                     "vol_info": u[4],
-                    "role_id": u[5],
+                    "role_id": u[5].replace('(rol)',''),
                     "update_time": u[6],
                     "insert_time": u[7]
                 })
@@ -255,3 +261,23 @@ async def query_guild_conf(guild_id: str):
                 "role_id": select_ret_all[0][3].replace('(rol)',''),
                 "insert_time": select_ret_all[0][4]
             }
+        
+    
+async def delete_violator_log(guild_id:str,user_id:str):
+    """删除数据库中的违例者记录
+    - 删除成功： 返回该用户信息的dict
+    - 删除失败： 返回空dict
+    """
+    query_ret = await query_violator_log(guild_id,user_id=user_id)
+    if not query_ret:  # 没有找到
+        return {}
+    user_info = query_ret[0] # 只会有一个
+    # 删除这个用户
+    global DBSqlLock
+    async with DBSqlLock:
+        with sqlite3.connect(DB_NAME) as db:
+            query = db.cursor()
+            query.execute(SqliteSql.Delete.DELETE_VIOLATOR_LOG_UID,(guild_id,user_id))
+            db.commit()  # 执行sql
+    # 返回用户信息
+    return user_info
