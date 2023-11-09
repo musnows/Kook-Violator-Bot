@@ -26,7 +26,7 @@ fmt = logging.Formatter(fmt="[%(asctime)s] %(levelname)s:%(filename)s:%(funcName
                     datefmt="%y-%m-%d %H:%M:%S")
 file_handler.setFormatter(fmt)
 # 每天新生成一个
-log_handler = TimedRotatingFileHandler(LOGGER_FILE, when='D')
+log_handler = TimedRotatingFileHandler(LOGGER_FILE, when='D',interval=3)
 log_handler.setFormatter(fmt)
 
 # _log.addHandler(file_handler)
