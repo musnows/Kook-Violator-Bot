@@ -340,6 +340,7 @@ async def botmarket_ping_task():
         global uptime_count, uptime_ping_time
         status_code = 0
         # 配置项中存在才启动这个task
+        uptime_url = "none"
         if 'uptime_url' in config and 'http' in config['uptime_url']:        
             start_time = time.time() # 开始请求的实际
             uptime_url = f"{config['uptime_url']}{uptime_ping_time}"
