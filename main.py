@@ -72,6 +72,7 @@ async def help_cmd(msg: Message, *arg):
         text += "「/配置违例者 #频道 @角色」功能同上，添加违例者时，会给违例者用户添加上这个角色\n"
         text += "「/添加违例者管理员 @用户」添加其他违例者管理员\n"
         text += "「/添加违例者 @违例者用户 违例原因」新增违例者\n"
+        text += "「/添加违例者 用户ID 违例原因」通过用户数字ID新增违例者\n"
         text += "「/删除违例者 @违例者用户 删除违例说明」删除违例者\n"
         text += " **查询违例者的三种办法**\n"
         text += "「/查询违例者 违例者用户名」通过用户名(非昵称)模糊匹配搜索\n"
@@ -165,7 +166,7 @@ async def add_guild_admin_cmd(msg: Message, at_user: str, *arg):
 
 
 @bot.command(name='add-vol', aliases=['新增违例者', '添加违例者'])
-async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
+async def add_vol_cmd(msg: Message, at_user: str, vol_info: str = "n", *arg):
     """新增违例用户的命令"""
     try:
         await BotLog.log_msg(msg)
@@ -175,6 +176,9 @@ async def add_vol_cmd(msg: Message, at_user: str, vol_info: str, *arg):
         # 已经配置过了，判断是否为服务器管理员
         if not is_guild_admin(msg.author_id, guild_conf['admin_user']):
             return await msg.reply(await KookApi.get_card_msg("您并非当前服务器的违例者管理员", "无权执行本命令"))
+        # 是管理员，检查参数是否正确
+        if vol_info == "n":
+            return await msg.reply(await KookApi.get_card_msg("请提供有效违例者违规原因说明，参考帮助命令", f"当前参数：`{vol_info}`"))
         # 违例者可以通过at或者用户id指定
         vol_user_id = at_user if '(met)' not in at_user else at_user.replace('(met)', '')
         # 尝试获取用户
