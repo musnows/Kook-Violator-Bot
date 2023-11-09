@@ -105,6 +105,10 @@ async def set_guild_conf_cmd(msg: Message, ch_text: str, role_text="e", *arg):
         admin_user_list = [msg.author_id] if not guild_conf else guild_conf['admin_user']
         ch_id = ch_text.replace('(chn)', '')
         rid = role_text.replace("(rid)","")
+        # 因为是用chn和rid的，所以对应的文字频道和角色肯定是存在的！（后续被删了不应该我管）
+        # 尝试获取该频道，判断文字频道是否有发送信息的权限
+        ch_temp = await bot.client.fetch_public_channel(ch_id)
+        await ch_temp.send(await KookApi.get_card_msg(f"管理员(met){msg.author_id}(met)已将本频道设置为违例者公式频道。"))
         # 设置
         bool_ret = await SqliteData.set_guild_conf(msg.ctx.guild.id, admin_user_list, ch_id, role_text)
         # 配置卡片
