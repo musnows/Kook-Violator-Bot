@@ -69,14 +69,15 @@ async def help_cmd(msg: Message, *arg):
     try:
         await BotLog.log_msg(msg)
         text = "「/配置违例者 #频道」初始化违例者管理，将在目标频道发送违例者公告\n"
-        text += "「/配置违例者 #频道 @角色」同上，添加违例者时会添加上这个角色\n"
+        text += "「/配置违例者 #频道 @角色」功能同上，添加违例者时，会给违例者用户添加上这个角色\n"
         text += "「/添加违例者管理员 @用户」添加其他违例者管理员\n"
         text += "「/添加违例者 @违例者用户 违例原因」新增违例者\n"
         text += "「/删除违例者 @违例者用户 删除违例说明」删除违例者\n"
         text += " **查询违例者的三种办法**\n"
-        text += "「/查询违例者 违例者用户名」通过用户名模糊匹配搜索\n"
-        text += "「/查询违例者 @用户」精准查询\n"
-        text += "「/查询违例者 用户ID -id」通过用户ID来精准查询"
+        text += "「/查询违例者 违例者用户名」通过用户名(非昵称)模糊匹配搜索\n"
+        text += "「/查询违例者 @用户」精准查询频道内用户\n"
+        text += "「/查询违例者 用户ID -id」通过用户数字ID来精准查询\n"
+        text += " 用户数字ID获取办法：KOOK设置-高级-开启开发者模式-右键用户头像-复制ID"
         # 构造卡片并发送
         c = Card(Module.Header("违例者管理机器人的帮助命令"), Module.Context(f"开机于：{StartTime}"), Module.Divider())
         c.append(Module.Section(Element.Text(text, Types.Text.KMD)))
